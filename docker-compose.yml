@@ -1,0 +1,148 @@
+services:
+  # 1. Konfigurasi Database untuk Service Package
+  service-db:
+    image: mysql:8.4
+    container_name: service-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: service_package_db
+      MYSQL_USER: service_package_user
+      MYSQL_PASSWORD: service_package_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - service_package_mysql_data:/var/lib/mysql
+    networks:
+      - laundry-network
+
+  # 2. Konfigurasi Service Package (Node.js)
+  service-package:
+    build: ./service-package
+    container_name: service-package
+    ports:
+      - "3001:3001"
+    environment:
+      DB_HOST: service-db
+      DB_USER: service_package_user
+      DB_PASSWORD: service_package_password
+      DB_NAME: service_package_db
+    depends_on:
+      - service-db
+    networks:
+      - laundry-network
+    
+  # 3. Konfigurasi Database untuk Transaction Service
+  transaction-db:
+    image: mongo:7
+    container_name: transaction-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: transaction_user
+      MONGO_INITDB_ROOT_PASSWORD: transaction_password
+      MONGO_INITDB_DATABASE: transaction_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - transaction_mongo_data:/data/db
+    networks:
+      - laundry-network
+
+  # 4. Konfigurasi Transaction Service (Node.js)
+  transaction-service:
+    build: ./transaction-service
+    container_name: transaction-service
+    ports:
+      - "3002:3002"
+    environment:
+      MONGO_URI: mongodb://transaction_user:transaction_password@transaction-db:27017/transaction_db?authSource=admin
+    depends_on:
+      - transaction-db
+      - service-package
+    networks:
+      - laundry-network
+    # 5. Konfigurasi Database untuk Customer Service (PostgreSQL)
+  customer-db:
+    image: postgres:17
+    container_name: customer-db
+    environment:
+      POSTGRES_DB: customer_db
+      POSTGRES_USER: customer_user
+      POSTGRES_PASSWORD: customer_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - customer_postgres_data:/var/lib/postgresql/data
+    networks:
+      - laundry-network
+
+  # 6. Konfigurasi Customer Service (Python)
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    ports:
+      - "3003:3003"
+    environment:
+      DB_HOST: customer-db
+      DB_USER: customer_user
+      DB_PASSWORD: customer_password
+      DB_NAME: customer_db
+    depends_on:
+      - customer-db
+    networks:
+      - laundry-network
+
+  # 7. Konfigurasi Report Service (PHP Laravel)
+  report-service:
+    build:
+      context: ./report-service
+      dockerfile: dockerfile
+    container_name: report-service
+    ports:
+      - "3004:8000"
+    environment:
+      APP_KEY: "base64:jQ5E4lPJDkwEqRE1B2ijFFCYpsbpu5BLt8g/Z38V9IE="
+      APP_ENV: production
+      APP_DEBUG: "false"
+    depends_on:
+      - transaction-service
+    networks:
+      - laundry-network
+
+
+  # 8. API Gateway (Node.js)
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - service-package
+      - transaction-service
+      - customer-service
+      - report-service
+    networks:
+      - laundry-network
+
+  # 9. GraphQL Gateway (Apollo Server)
+  graphql-gateway:
+    build: ./graphql-gateway
+    container_name: graphql-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      - service-package
+      - transaction-service
+      - customer-service
+      - report-service
+    networks:
+      - laundry-network
+
+
+# Konfigurasi Jaringan & Volume
+networks:
+  laundry-network:
+    driver: bridge
+
+volumes:
+  service_package_mysql_data:
+  transaction_mongo_data:
+  customer_postgres_data:
