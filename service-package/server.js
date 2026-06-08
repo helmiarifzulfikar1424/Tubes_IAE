@@ -106,6 +106,19 @@ app.post('/services', async (req, res) => {
     }
 });
 
+app.delete('/services/:id', async (req, res) => {
+    try {
+        const [result] = await db.execute('DELETE FROM service WHERE id = ?', [req.params.id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Paket laundry tidak ditemukan" });
+        }
+        res.json({ message: "Paket laundry berhasil dihapus" });
+    } catch (error) {
+        res.status(500).json({ message: "Gagal menghapus paket laundry", error: error.message });
+    }
+});
+
+
 //Mulai server setelah berhasil koneksi ke database
 async function startServer(){
     await conneectWithRetry();

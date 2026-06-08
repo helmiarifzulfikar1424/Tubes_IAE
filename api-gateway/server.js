@@ -72,6 +72,11 @@ app.post('/services', async (req, res) => {
     const response = await axios.post(`${SERVICES.servicePackage}/services`, req.body);
     res.status(201).json(response.data);
 });
+//hapus data paket laundry berdasarkan id
+app.delete('/services/:id', async (req, res) => {
+    const response = await axios.delete(`${SERVICES.servicePackage}/services/${req.params.id}`);
+    res.json(response.data);
+});
 
 // =====================
 // Proxy ke Transaction Service
